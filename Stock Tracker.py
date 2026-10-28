@@ -9,16 +9,26 @@ MENU = ("\n1. Enter Date for Stock Data\n"
         "3. Exit\n"
         "4. View Available Dates\n"
         "5. Update Data\n"
-        "Enter your choice (1-4): ")
+        "6. Delete Data\n"
+        "Enter your choice (1-6): ")
  
 MENU1 = ("\n1. Update Open price\n"
          "2. Update High price\n"
          "3. Update Low price\n"
          "4. Update Close price\n"
          "5. Update volume\n"
-         "6.Update all data\n"
-         "Enter your choice (1-6): ")
+         "6. Update all data\n"
+         "7. Exit\n"
+         "Enter your choice (1-7): ")
 
+MENU2 = ("\n1. Delete Open price\n"
+         "2. Delete High price\n"
+         "3. Delete Low price\n"
+         "4. Delete Close price\n"
+         "5. Delete Volume\n"
+         "6. Delete all data for this date\n"
+         "7. Back\n"
+         "Enter your choice (1-7): ")
 
 CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS stock_prices (
@@ -91,6 +101,10 @@ def view_available_dates(conn):
  
 def view_stock_data(conn):
     date = input("Enter the date (YYYY-MM-DD): ").strip()
+
+    if conn.execute("SELECT COUNT(*) FROM stock_prices").fetchone()[0] == 0:
+        print("The table is empty.")
+        return
  
     if not is_valid_date(date):
         print("Invalid format. Please use YYYY-MM-DD.")
@@ -120,42 +134,68 @@ def view_stock_data(conn):
     print("Volume =", row[5])
  
 def update_stock_data(conn):
-    date = input("Enter the date (YYYY-MM-DD): ")
+    date = input("Enter the date (YYYY-MM-DD): ").strip()
 
     if not is_valid_date(date):
         print("Invalid format. Please use YYYY-MM-DD.")
         return
 
-    if date_exists(conn, date):
-        print("yooo")  
+    if not date_exists(conn, date):
+        print(f"{date} doesn't exist")  
         return
-    
-    try:
-       while True:
-           choice1 = input(MENU1).strip() 
 
-           if choice1 == '1':
-               open1 = int(input("Enter new open value: "))
-               conn.execute("UPDATE stock_prices SET open = ? WHERE date = ?", (open1, date))
-    except:
-        print("Prices must be numbers and volume must be a whole number.")           
+    print(f"Updating data for {date}")
+    bruh = {'1' : 'Open' , '2' : 'High' , '3' : 'Low', '4' : 'Close'}          
                
-               
+    while True:
+        choice1 = input(MENU1).strip()
 
+        if choice1 == '7':
+           break
+
+        try:
+           if choice1 in bruh:
+            yay = bruh[choice1]
+            value = float(input(f"Enter new {yay} value: "))
+            conn.execute(f"UPDATE stock_prices set {yay} = ? WHERE date = ?", (value, date))
+           elif choice1 == '5':
+            value1 = int(input("Enter new Volume value: "))
+            conn.execute("UPDATE stock_prices set Volume = ? WHERE date = ?", (value1, date))
+           elif choice1 == '6':
+            open_price = float(input("Enter new open value: ").strip())
+            high_price = float(input("Enter new high value: ").strip())
+            low_price = float(input("Enter new low value: ").strip())
+            close_price = float(input("Enter new close value: ").strip())
+            volume = int(input("Enter new volume: ").strip())
+            conn.execute(
+                    "UPDATE stock_prices SET open = ?, high = ?, low = ?, close = ?, volume = ? WHERE date = ?",
+                    (open_price, high_price, low_price, close_price, volume, date))       
+           else:
+            print("Invalid Choice")
+            continue
+
+        except ValueError:
+          print("Prices must be numbers and volume must be a whole number.")
+          continue                 
+        conn.commit()
+        print("The data has been updated") 
     
 
 def add_stock_data(conn):
     date = input("Enter the date (YYYY-MM-DD): ").strip()
+
+    if conn.execute("SELECT COUNT(*) FROM stock_prices").fetchone()[0] == 0:
+        print("The table is empty.")
+        return
  
     if not is_valid_date(date):
         print("Invalid format. Please use YYYY-MM-DD.")
         return
  
-    if not date_exists(conn, date):
-        print("Date doesn't exist")
+    if date_exists(conn, date):
+        print(f"Data for {date} already exists.")
         return
 
-    print(f"Updating data for {date}")
  
     try:
         open_price = float(input("Enter the opening price: ").strip())
@@ -186,7 +226,43 @@ def add_stock_data(conn):
         })
     conn.commit()
     print(f"Data for {date} added.")
- 
+
+def delete_stock_data(conn):
+    date = input("Enter the date (YYYY-MM-DD): ").strip()
+
+    if not is_valid_date(date):
+        print("Invalid format. Please use YYYY-MM-DD.")
+        return
+
+    if not date_exists(conn, date):
+        print(f"{date} doesn't exist")
+        return
+
+    print(f"Deleting data for {date}")
+    columns = {'1': 'open', '2': 'high', '3': 'low', '4': 'close', '5': 'volume'}
+
+    while True:
+        choice2 = input(MENU2).strip()
+
+        if choice2 == '7':
+            break
+
+        if choice2 in columns:
+            col = columns[choice2]
+            conn.execute(f"UPDATE stock_prices SET {col} = NULL WHERE date = ?", (date,))
+            conn.commit()
+            print(f"{col.capitalize()} cleared for {date}.")
+        elif choice2 == '6':
+            confirm = input(f"Delete ALL data for {date}? This cannot be undone (y/n): ").strip().lower()
+            if confirm == 'y':
+                conn.execute("DELETE FROM stock_prices WHERE date = ?", (date,))
+                conn.commit()
+                print(f"All data for {date} deleted.")
+                break  # the row is gone, so there's nothing left to delete here
+            else:
+                print("Cancelled.")
+        else:
+            print("Invalid Choice") 
  
 conn = setup_database()
  
@@ -203,7 +279,9 @@ while True:
         view_available_dates(conn)
     elif choice == '5':
         update_stock_data(conn)
+    elif choice == '6':
+        delete_stock_data(conn)  
     else:
-        print("Invalid choice. Please enter 1-4.")
+        print("Invalid choice. Please enter 1-6.")
  
 conn.close()
