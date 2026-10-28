@@ -127,9 +127,7 @@ def update_stock_data(conn):
         return
 
     if date_exists(conn, date):
-        print(f"For date: {date}\n"
-              f"{MENU1}")
-        
+        print("yooo")  
         return
     
     try:
